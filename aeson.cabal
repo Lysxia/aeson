@@ -1,5 +1,5 @@
 name:            aeson
-version:         1.2.2.0
+version:         1.2.3.0
 license:         BSD3
 license-file:    LICENSE
 category:        Text, Web, JSON
@@ -103,6 +103,7 @@ library
     Data.Aeson.Encode
 
   other-modules:
+    Data.Aeson.Compat
     Data.Aeson.Encoding.Builder
     Data.Aeson.Internal.Functions
     Data.Aeson.Parser.Time
