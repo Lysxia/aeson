@@ -7,10 +7,11 @@ import qualified Data.ByteString.Char8 as BS
 import System.Environment
 
 main = do
-    [mode,n] <- getArgs
+    [mode,n,p] <- getArgs
     let f = case mode of
             "ffi" -> FFI.unescapeText
             "pure" -> Pure.unescapeText
             _ -> error "Unknown mode"
-    putStrLn $ either show (show . T.length) $ f $ BS.concat $ replicate (read n) $ BS.pack "\\\""
+    print p
+    putStrLn $ either show (show . T.length) $ f $ BS.concat $ replicate (read n) $ BS.pack p
 
