@@ -210,7 +210,27 @@ jstring = A.word8 DOUBLE_QUOTE *> jstring_
 jstring_ :: Parser Text
 {-# INLINE jstring_ #-}
 jstring_ = {-# SCC "jstring_" #-} do
-#if MIN_VERSION_ghc_prim(0,3,1)
+#if 1
+  (s, escaped) <- A.match rawFalse
+  if escaped
+    then case unescapeText (B.init s) of
+      Right r  -> return r
+      Left err -> fail $ show err
+    else return (TE.decodeUtf8 s)
+  where
+    rawFalse = raw rawFalse False
+    rawTrue = raw rawTrue True
+    {-# INLINE raw #-}
+    raw rawSelf b = do
+      c <- A.anyWord8
+      if c == BACKSLASH
+        then A.anyWord8 *> rawTrue  -- consume escaped character
+        else if c == DOUBLE_QUOTE
+          then return b
+          else if c >= 0x80 || c < 0x20
+            then rawTrue
+            else rawSelf
+#elif MIN_VERSION_ghc_prim(0,3,1)
   (s, S _ escaped) <- A.runScanner startState go <* A.anyWord8
   -- We escape only if there are
   -- non-ascii (over 7bit) characters or backslash present.
