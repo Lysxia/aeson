@@ -41,6 +41,7 @@ import Prelude.Compat
 import Control.Applicative ((<|>))
 import Control.Monad (void, when)
 import Data.Aeson.Types.Internal (IResult(..), JSONPath, Result(..), Value(..))
+import qualified Data.Aeson.Parser.Attoparsec as A0
 import Data.Attoparsec.ByteString.Char8 (Parser, char, decimal, endOfInput, isDigit_w8, signed, string)
 import Data.Scientific (Scientific)
 import Data.Text (Text)
@@ -210,7 +211,7 @@ jstring = A.word8 DOUBLE_QUOTE *> jstring_
 jstring_ :: Parser Text
 {-# INLINE jstring_ #-}
 jstring_ = {-# SCC "jstring_" #-} do
-#if 1
+#if 0
   (s, escaped) <- A.match rawFalse
   if escaped
     then case unescapeText (B.init s) of
@@ -222,16 +223,17 @@ jstring_ = {-# SCC "jstring_" #-} do
     rawTrue = raw rawTrue True
     {-# INLINE raw #-}
     raw rawSelf b = do
-      c <- A.anyWord8
-      if c == BACKSLASH
+      W8# c' <- A.anyWord8
+      let c = word2Int# c'
+      if isTrue# (c ==# 92#)
         then A.anyWord8 *> rawTrue  -- consume escaped character
-        else if c == DOUBLE_QUOTE
+        else if isTrue# (c ==# 34#)
           then return b
-          else if c >= 0x80 || c < 0x20
+          else if isTrue# ((c `andI#` 0x80# ==# 0x80#) `orI#` (c `andI#` 0x1f# ==# c))
             then rawTrue
             else rawSelf
 #elif MIN_VERSION_ghc_prim(0,3,1)
-  (s, S _ escaped) <- A.runScanner startState go <* A.anyWord8
+  (s, S _ escaped) <- A0.runScanner startState go <* A.anyWord8
   -- We escape only if there are
   -- non-ascii (over 7bit) characters or backslash present.
   --
