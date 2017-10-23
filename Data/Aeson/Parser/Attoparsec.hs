@@ -3,6 +3,7 @@
 
 module Data.Aeson.Parser.Attoparsec where
 
+import Control.Monad
 import Data.Attoparsec.Internal (concatReverse)
 import Data.Attoparsec.ByteString.Internal
 import Data.ByteString (ByteString)
@@ -22,12 +23,39 @@ data T s = T {-# UNPACK #-} !Int s
 
 data S s = Continue {-# UNPACK #-} !Int s | Done {-# UNPACK #-} !Int s
 
+newtype P s a = P {
+    runP :: forall r
+         .  (Ptr Word8 -> s -> a -> IO r)  -- Read some words
+         -> (Ptr Word8 -> s -> IO r)  -- Expected more input
+         -> (Ptr Word8 -> s -> IO r)  -- Done
+         -> Ptr Word8              -- Start reading from here
+         -> s
+         -> IO r
+  }
+
+instance Functor (P s) where
+  fmap = liftM
+
+instance Applicative (P s) where
+  pure = return
+  (<*>) = ap
+
+instance Monad (P s) where
+  return a = P (\k _ _ ptr s -> k ptr s a)
+
+  P run >>= p = P $ \k more done ptr s ->
+    run (\ptr' s' a -> runP (p a) k more done ptr' s')
+      more
+      done
+      ptr
+      s
+
 scan0_
   :: (s -> [ByteString] -> Parser r)
   -> s
   -- -> (forall r. s -> (Int -> ((S s -> r) -> Word8 -> r) -> ((s -> r) -> r) -> r) -> r)
-  -> (forall r. s -> (Int -> s -> ((S s -> r) -> Word8 -> r) -> r) -> r)
-  -- -> (forall m. Monad m => s -> (s -> m Word8) -> m s)
+  -- -> (forall r. s -> (Int -> s -> ((S s -> r) -> Word8 -> r) -> r) -> r)
+  -> (forall m. Monad m => s -> (s -> m Word8) -> (Maybe s -> m s) -> m s)
   -> Parser r
 scan0_ f s0 p = go [] s0
  where
@@ -36,19 +64,23 @@ scan0_ f s0 p = go [] s0
           withForeignPtr fp $ \ptr0 -> do
             let start = ptr0 `plusPtr` off
                 end   = start `plusPtr` len
-                inner ptr !s = do
-                  let peek' i s' ok =  do
-                        let ptr' = ptr `plusPtr` i
-                        if ptr' < end then
-                          peek (ptr' `plusPtr` i) >>= ok ret
-                        else
-                          done (ptr' `minusPtr` start) s'
-                      ret s_ =
-                        case s_ of
-                          Continue i' s' -> inner (ptr `plusPtr` i') s'
-                          Done i' s' -> done (ptr `plusPtr` i' `minusPtr` start) s'
-                  p s peek'
                 done !i !s = return (T i s)
+                inner ptr !s =
+                  let peek' s' = P $ \k more done ptr' s ->
+                        if ptr' < end then do
+                          peek ptr' >>= k (ptr' `plusPtr` 1) s'
+                        else
+                          more ptr' s'
+                      done' s_ = P $ \k more done ptr' s ->
+                        case s_ of
+                          Nothing -> done (ptr' `plusPtr` (-1)) s
+                          Just s' -> done  ptr' s'
+                  in runP (p s peek' done')
+                    (\ptr' _ s' -> inner ptr' s')
+                    (\ptr' s' -> done (ptr' `minusPtr` start) s')
+                    (\ptr' s' -> done (ptr' `minusPtr` start) s')
+                    ptr
+                    s
             inner start s1
     bs <- get
     let T i s' = inlinePerformIO $ scanner bs
@@ -63,11 +95,13 @@ scan_ :: (s -> [ByteString] -> Parser r) -> s -> (s -> Word8 -> Maybe s)
          -> Parser r
 scan_ f s0 p = scan0_ f s0 p'
  where
-  p' s peek' = do
-    peek' 0 s
-      (\ret w -> ret $ case p s w of
-        Just s' -> Continue 1 s'
-        Nothing -> Done 0 s)
+  p' s getWord exit = go s
+    where
+      go s = do
+        w <- getWord s
+        case p s w of
+          Just s' -> go s'
+          Nothing -> exit Nothing
 {-# INLINE scan_ #-}
 
 runScanner :: s -> (s -> Word8 -> Maybe s) -> Parser (ByteString, s)
