@@ -20,12 +20,12 @@ import GHC.IO (IO(IO))
 
 data T s = T {-# UNPACK #-} !Int s
 
-data S s = More s | Continue {-# UNPACK #-} !Int s | Done {-# UNPACK #-} !Int s
+data S s = Continue {-# UNPACK #-} !Int s | Done {-# UNPACK #-} !Int s
 
 scan0_
   :: (s -> [ByteString] -> Parser r)
   -> s
-  -> (forall r. s -> (Int -> ((S s -> r) -> Word8 -> r) -> ((S s -> r) -> r) -> r) -> r)
+  -> (forall r. s -> (Int -> ((S s -> r) -> Word8 -> r) -> ((s -> r) -> r) -> r) -> r)
   -> Parser r
 scan0_ f s0 p = go [] s0
  where
@@ -40,10 +40,9 @@ scan0_ f s0 p = go [] s0
                         if ptr' < end then
                           peek (ptr' `plusPtr` i) >>= ok ret
                         else
-                          no ret
+                          no (\s' -> done (ptr' `minusPtr` start) s')
                       ret s_ =
                         case s_ of
-                          More s' -> done (end `minusPtr` start) s'
                           Continue i' s' -> inner (ptr `plusPtr` i') s'
                           Done i' s' -> done (ptr `plusPtr` i' `minusPtr` start) s'
                   p s peek'
@@ -67,7 +66,7 @@ scan_ f s0 p = scan0_ f s0 p'
       (\ret w -> ret $ case p s w of
         Just s' -> Continue 1 s'
         Nothing -> Done 0 s)
-      (\ret -> ret (More s))
+      (\ret -> ret s)
 {-# INLINE scan_ #-}
 
 runScanner :: s -> (s -> Word8 -> Maybe s) -> Parser (ByteString, s)
