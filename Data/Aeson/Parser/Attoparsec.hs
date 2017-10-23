@@ -25,7 +25,9 @@ data S s = Continue {-# UNPACK #-} !Int s | Done {-# UNPACK #-} !Int s
 scan0_
   :: (s -> [ByteString] -> Parser r)
   -> s
-  -> (forall r. s -> (Int -> ((S s -> r) -> Word8 -> r) -> ((s -> r) -> r) -> r) -> r)
+  -- -> (forall r. s -> (Int -> ((S s -> r) -> Word8 -> r) -> ((s -> r) -> r) -> r) -> r)
+  -> (forall r. s -> (Int -> s -> ((S s -> r) -> Word8 -> r) -> r) -> r)
+  -- -> (forall m. Monad m => s -> (s -> m Word8) -> m s)
   -> Parser r
 scan0_ f s0 p = go [] s0
  where
@@ -35,12 +37,12 @@ scan0_ f s0 p = go [] s0
             let start = ptr0 `plusPtr` off
                 end   = start `plusPtr` len
                 inner ptr !s = do
-                  let peek' i ok no =  do
+                  let peek' i s' ok =  do
                         let ptr' = ptr `plusPtr` i
                         if ptr' < end then
                           peek (ptr' `plusPtr` i) >>= ok ret
                         else
-                          no (\s' -> done (ptr' `minusPtr` start) s')
+                          done (ptr' `minusPtr` start) s'
                       ret s_ =
                         case s_ of
                           Continue i' s' -> inner (ptr `plusPtr` i') s'
@@ -62,11 +64,10 @@ scan_ :: (s -> [ByteString] -> Parser r) -> s -> (s -> Word8 -> Maybe s)
 scan_ f s0 p = scan0_ f s0 p'
  where
   p' s peek' = do
-    peek' 0
+    peek' 0 s
       (\ret w -> ret $ case p s w of
         Just s' -> Continue 1 s'
         Nothing -> Done 0 s)
-      (\ret -> ret s)
 {-# INLINE scan_ #-}
 
 runScanner :: s -> (s -> Word8 -> Maybe s) -> Parser (ByteString, s)
