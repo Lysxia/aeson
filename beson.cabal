@@ -1,4 +1,4 @@
-name:            aeson
+name:            beson
 version:         1.2.3.0
 license:         BSD3
 license-file:    LICENSE
@@ -112,6 +112,7 @@ library
     Data.Aeson.Types.Internal
     Data.Attoparsec.Time
     Data.Attoparsec.Time.Internal
+    Data.Aeson.Parser.Attoparsec
 
   build-depends:
     attoparsec >= 0.13.0.1,
