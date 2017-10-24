@@ -55,7 +55,7 @@ scan0_
   -> s
   -- -> (forall r. s -> (Int -> ((S s -> r) -> Word8 -> r) -> ((s -> r) -> r) -> r) -> r)
   -- -> (forall r. s -> (Int -> s -> ((S s -> r) -> Word8 -> r) -> r) -> r)
-  -> (forall m. Monad m => s -> (s -> m Word8) -> (Maybe s -> m s) -> m s)
+  -> (s -> (s -> P s Word8) -> (Maybe s -> P s s) -> P s s)
   -> Parser r
 scan0_ f s0 p = go [] s0
  where
@@ -100,13 +100,19 @@ scan_ f s0 p = scan0_ f s0 p'
       go s = do
         w <- getWord s
         case p s w of
-          Just s' -> go s'
+          Just s' -> return s'
           Nothing -> exit Nothing
 {-# INLINE scan_ #-}
 
 runScanner :: s -> (s -> Word8 -> Maybe s) -> Parser (ByteString, s)
 runScanner = scan_ $ \s xs -> let !sx = concatReverse xs in return (sx, s)
 {-# INLINE runScanner #-}
+
+runMScanner
+  :: s
+  -> (s -> (s -> P s Word8) -> (Maybe s -> P s s) -> P s s)
+  -> Parser (ByteString, s)
+runMScanner = scan0_ $ \s xs -> let !sx = concatReverse xs in return (sx, s)
 
 -- | Just like unsafePerformIO, but we inline it. Big performance gains as
 -- it exposes lots of things to further inlining. /Very unsafe/. In

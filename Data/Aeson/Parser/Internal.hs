@@ -211,27 +211,33 @@ jstring = A.word8 DOUBLE_QUOTE *> jstring_
 jstring_ :: Parser Text
 {-# INLINE jstring_ #-}
 jstring_ = {-# SCC "jstring_" #-} do
-#if 0
-  (s, escaped) <- A.match rawFalse
+#if 1
+  (s, escaped) <- A0.runMScanner False raw <* A.anyWord8
   if escaped
-    then case unescapeText (B.init s) of
+    then case unescapeText s of
       Right r  -> return r
       Left err -> fail $ show err
     else return (TE.decodeUtf8 s)
   where
-    rawFalse = raw rawFalse False
-    rawTrue = raw rawTrue True
-    {-# INLINE raw #-}
-    raw rawSelf b = do
-      W8# c' <- A.anyWord8
+    raw !b getWord exit = do
+#if 1
+      W8# c' <- getWord b
       let c = word2Int# c'
       if isTrue# (c ==# 92#)
-        then A.anyWord8 *> rawTrue  -- consume escaped character
+        then getWord True *> return True  -- consume escaped character
         else if isTrue# (c ==# 34#)
-          then return b
+          then exit Nothing
           else if isTrue# ((c `andI#` 0x80# ==# 0x80#) `orI#` (c `andI#` 0x1f# ==# c))
-            then rawTrue
-            else rawSelf
+            then return True
+            else return b
+#else
+      c <- getWord b
+      if c == BACKSLASH
+        then getWord True *> return True  -- consume escaped character
+        else if c == DOUBLE_QUOTE
+          then exit Nothing
+          else return $! b || c >= 0x80 || c <= 0x1f
+#endif
 #elif MIN_VERSION_ghc_prim(0,3,1)
   (s, S _ escaped) <- A0.runScanner startState go <* A.anyWord8
   -- We escape only if there are
