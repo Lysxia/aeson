@@ -225,7 +225,8 @@ jstring_ = {-# SCC "jstring_" #-} do
  where
     startState              = S 0# 0#
     go (S skip escaped) (W8# c)
-      | isTrue# skip        = Just (S 0# escaped')
+      -- skip follows a backslash, so escaped = True
+      | isTrue# skip        = Just (S 0# 1#)
       | isTrue# (w ==# 34#) = Nothing   -- double quote
       | otherwise           = Just (S skip' escaped')
       where
