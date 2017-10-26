@@ -22,7 +22,7 @@ main =
   defaultMain [
      env (load "json-data/twitter100.json") $ \ ~(twtr :: Result) ->
      bgroup "twitter" [
-         bench "aeson" $ nf Aeson.encode twtr
+         bench "beson" $ nf Aeson.encode twtr
        , bench "buffer-builder" $ nf encodeJson twtr
        , bench "json-builder" $ nf toJsonLBS twtr
        ]

@@ -28,7 +28,7 @@ import Twitter
 #ifndef HAS_BOTH_AESON_AND_BENCHMARKS
 import Data.Aeson hiding (Result)
 #else
-import "aeson" Data.Aeson hiding (Result)
+import "beson" Data.Aeson hiding (Result)
 import qualified "aeson-benchmarks" Data.Aeson as B
 #endif
 

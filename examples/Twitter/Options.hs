@@ -10,7 +10,7 @@ module Twitter.Options (module Twitter.Options) where
 import Data.Aeson
 import Data.Aeson.Types
 #else
-import "aeson" Data.Aeson
+import "beson" Data.Aeson
 import qualified "aeson-benchmarks" Data.Aeson as B
 #endif
 

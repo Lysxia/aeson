@@ -324,7 +324,7 @@ benchmarks :: Benchmark
 benchmarks = env (load "json-data/buffer-builder.json") $
     \ ~(parsedUserList :: [User]) ->
     bgroup "json-bench" [
-      bench "aeson" $ nf Aeson.encode parsedUserList
+      bench "beson" $ nf Aeson.encode parsedUserList
     , bench "buffer-builder" $ nf Json.encodeJson parsedUserList
     , bench "json-builder" $ nf JB.toJsonLBS parsedUserList
     ]

@@ -24,7 +24,7 @@ import Twitter.Options
 #ifndef HAS_BOTH_AESON_AND_BENCHMARKS
 import Data.Aeson (ToJSON (..), FromJSON (..), genericToJSON, genericToEncoding, genericParseJSON)
 #else
-import "aeson" Data.Aeson (ToJSON (..), FromJSON (..), genericToJSON, genericToEncoding, genericParseJSON)
+import "beson" Data.Aeson (ToJSON (..), FromJSON (..), genericToJSON, genericToEncoding, genericParseJSON)
 import qualified "aeson-benchmarks" Data.Aeson as B
 #endif
 

@@ -24,7 +24,7 @@ import Twitter.Options
 #ifndef HAS_BOTH_AESON_AND_BENCHMARKS
 import Data.Aeson.TH
 #else
-import "aeson" Data.Aeson.TH
+import "beson" Data.Aeson.TH
 import qualified "aeson-benchmarks" Data.Aeson.TH as B
 #endif
 

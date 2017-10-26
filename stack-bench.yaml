@@ -8,6 +8,7 @@ resolver: nightly-2017-10-18
 # caused recompilations
 work-dir: .stack-work-bench
 packages:
+- '.'
 - benchmarks
 extra-deps:
 - aeson-1.2.2.0

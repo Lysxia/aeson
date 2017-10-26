@@ -9,7 +9,7 @@ import Prelude ()
 import Prelude.Compat
 
 import Data.Foldable (toList)
-import qualified "aeson" Data.Aeson as A
+import qualified "beson" Data.Aeson as A
 import qualified "aeson-benchmarks" Data.Aeson as B
 import qualified Data.Sequence as S
 import qualified Data.Vector as V

@@ -14,7 +14,7 @@ import Data.Maybe (fromMaybe)
 import qualified "aeson-benchmarks" Data.Aeson as A
 import qualified "aeson-benchmarks" Data.Aeson.Text as A
 import qualified "aeson-benchmarks" Data.Aeson.Parser.Internal as I
-import qualified "aeson" Data.Aeson as B
+import qualified "beson" Data.Aeson as B
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text.Lazy          as TL
@@ -89,7 +89,7 @@ main = do
         , bench "json"           $ nf decodeJ enJ
         ]
       , bgroup "jp" [
-          bench "aeson"          $ nf decodeA jpA
+          bench "beson"          $ nf decodeA jpA
         , bench "aeson/stricter" $ nf decodeAS jpS
         , bench "aeson/hackage"  $ nf decodeB jpA
         , bench "json"           $ nf decodeJ jpJ

@@ -4,7 +4,7 @@ module Typed.TH (benchmarks, decodeBenchmarks) where
 import Prelude ()
 import Prelude.Compat
 
-import "aeson" Data.Aeson hiding (Result)
+import "beson" Data.Aeson hiding (Result)
 import Criterion
 import Data.ByteString.Lazy as L
 import Twitter.TH

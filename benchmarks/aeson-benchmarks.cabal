@@ -140,7 +140,7 @@ executable aeson-benchmark-typed
   hs-source-dirs: ../examples .
   ghc-options: -Wall -O2 -rtsopts
   -- We must help ourself in situations when there is both
-  -- aeson and aeson-benchmakrs
+  -- beson and aeson-benchmakrs
   cpp-options: -DHAS_BOTH_AESON_AND_BENCHMARKS
   other-modules:
     Twitter
@@ -153,7 +153,7 @@ executable aeson-benchmark-typed
     Typed.Manual
     Typed.TH
   build-depends:
-    aeson,
+    beson,
     aeson-benchmarks,
     base,
     base-compat,
@@ -175,7 +175,7 @@ executable aeson-benchmark-compare-with-json
   ghc-options: -Wall -O2 -rtsopts
   cpp-options: -DHAS_BOTH_AESON_AND_BENCHMARKS
   build-depends:
-    aeson,
+    beson,
     aeson-benchmarks,
     base,
     base-compat,
@@ -241,7 +241,7 @@ executable aeson-benchmark-map
   main-is: AesonMap.hs
   ghc-options: -Wall -O2 -rtsopts
   build-depends:
-    aeson,
+    beson,
     aeson-benchmarks,
     base,
     base-compat,
@@ -259,7 +259,7 @@ executable aeson-benchmark-foldable
   main-is: AesonFoldable.hs
   ghc-options: -Wall -O2 -rtsopts
   build-depends:
-    aeson,
+    beson,
     aeson-benchmarks,
     base,
     base-compat,

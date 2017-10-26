@@ -15,7 +15,7 @@ import Criterion.Main
 import Data.Hashable
 import Data.Proxy (Proxy (..))
 import Data.Tagged (Tagged (..))
-import qualified "aeson" Data.Aeson as A
+import qualified "beson" Data.Aeson as A
 import qualified "aeson-benchmarks" Data.Aeson as B
 import qualified "aeson-benchmarks" Data.Aeson.Types as B (fromJSONKeyCoerce)
 import qualified Data.ByteString.Lazy as LBS
