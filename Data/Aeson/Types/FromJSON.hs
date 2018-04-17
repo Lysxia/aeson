@@ -894,7 +894,7 @@ instance ( FromPair          arity f
 parseAllNullarySum :: forall f a. (SumFromString f, ConstructorNames f)
                    => TypeName -> Options -> Value -> Parser (f a)
 parseAllNullarySum tname opts =
-    fmap (contextType tname) . withText "Text" $ \key ->
+    fmap (contextType tname) . withText "String" $ \key ->
       maybe (err key) return $
         parseSumFromString opts key
   where
