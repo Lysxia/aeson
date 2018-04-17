@@ -594,7 +594,7 @@ class FromJSON2 f where
         -> Value -> Parser [f a b]
     liftParseJSONList2 fa ga fb gb v = case v of
         Array vals -> fmap V.toList (V.mapM (liftParseJSON2 fa ga fb gb) vals)
-        _ -> typeMismatch "[a]" v
+        _ -> typeMismatch "Array" v
 
 -- | Lift the standard 'parseJSON' function through the type constructor.
 parseJSON2 :: (FromJSON2 f, FromJSON a, FromJSON b) => Value -> Parser (f a b)
@@ -626,25 +626,28 @@ instance (FromJSON a) => FromJSON [a] where
 -- Functions
 -------------------------------------------------------------------------------
 
+prependContext :: String -> Parser a -> Parser a
+prependContext s = prependFailure ("when parsing " ++ s ++ ", ")
+
 -- | @'withObject' expected f value@ applies @f@ to the 'Object' when @value@
 --   is an 'Object' and fails using @'typeMismatch' expected@ otherwise.
 withObject :: String -> (Object -> Parser a) -> Value -> Parser a
-withObject _        f (Object obj) = f obj
-withObject expected _ v            = typeMismatch expected v
+withObject _       f (Object obj) = f obj
+withObject context _ v            = prependContext context (typeMismatch "Object" v)
 {-# INLINE withObject #-}
 
 -- | @'withText' expected f value@ applies @f@ to the 'Text' when @value@ is a
 --   'String' and fails using @'typeMismatch' expected@ otherwise.
 withText :: String -> (Text -> Parser a) -> Value -> Parser a
-withText _        f (String txt) = f txt
-withText expected _ v            = typeMismatch expected v
+withText _       f (String txt) = f txt
+withText context _ v            = prependContext context (typeMismatch "String" v)
 {-# INLINE withText #-}
 
 -- | @'withArray' expected f value@ applies @f@ to the 'Array' when @value@ is
 -- an 'Array' and fails using @'typeMismatch' expected@ otherwise.
 withArray :: String -> (Array -> Parser a) -> Value -> Parser a
-withArray _        f (Array arr) = f arr
-withArray expected _ v           = typeMismatch expected v
+withArray _       f (Array arr) = f arr
+withArray context _ v           = prependContext context (typeMismatch "Array" v)
 {-# INLINE withArray #-}
 
 -- | @'withNumber' expected f value@ applies @f@ to the 'Number' when @value@
@@ -658,15 +661,15 @@ withNumber expected f = withScientific expected (f . scientificToNumber)
 -- when @value@ is a 'Number' and fails using @'typeMismatch' expected@
 -- otherwise.
 withScientific :: String -> (Scientific -> Parser a) -> Value -> Parser a
-withScientific _        f (Number scientific) = f scientific
-withScientific expected _ v                   = typeMismatch expected v
+withScientific _ f (Number scientific) = f scientific
+withScientific context _ v = prependContext context (typeMismatch "Number" v)
 {-# INLINE withScientific #-}
 
 -- | @'withBool' expected f value@ applies @f@ to the 'Bool' when @value@ is a
 -- 'Bool' and fails using @'typeMismatch' expected@ otherwise.
 withBool :: String -> (Bool -> Parser a) -> Value -> Parser a
-withBool _        f (Bool arr) = f arr
-withBool expected _ v          = typeMismatch expected v
+withBool _       f (Bool arr) = f arr
+withBool context _ v          = prependContext context (typeMismatch "Bool" v)
 {-# INLINE withBool #-}
 
 -- | Decode a nested JSON-encoded string.
@@ -676,7 +679,7 @@ withEmbeddedJSON _ innerParser (String txt) =
     where
         eitherDecode = eitherFormatError . eitherDecodeWith jsonEOF ifromJSON
         eitherFormatError = either (Left . uncurry formatError) Right
-withEmbeddedJSON name _ v = typeMismatch name v
+withEmbeddedJSON context _ v = prependContext context (typeMismatch "String" v)
 {-# INLINE withEmbeddedJSON #-}
 
 -- | Convert a value from JSON, failing if the types do not match.
@@ -741,7 +744,7 @@ parseFieldMaybe' = (.:!)
 -- E.g. @'explicitParseField' 'parseJSON1' :: ('FromJSON1' f, 'FromJSON' a) -> 'Object' -> 'Text' -> 'Parser' (f a)@
 explicitParseField :: (Value -> Parser a) -> Object -> Text -> Parser a
 explicitParseField p obj key = case H.lookup key obj of
-    Nothing -> fail $ "key " ++ show key ++ " not present"
+    Nothing -> fail $ "key \"" ++ unpack key ++ "\" not present"
     Just v  -> p v <?> Key key
 {-# INLINE explicitParseField #-}
 
@@ -787,11 +790,10 @@ type TypeName = String
 type ConName = String
 
 contextType :: TypeName -> Parser a -> Parser a
-contextType tname = modifyFailure (\e -> "when parsing " ++ tname ++ ", " ++ e)
+contextType = prependContext
 
 contextCons :: ConName -> TypeName -> Parser a -> Parser a
-contextCons cname tname = modifyFailure
-  (\e -> "when parsing " ++ showCons cname tname ++ ", " ++ e)
+contextCons cname tname = prependContext (showCons cname tname)
 
 showCons :: ConName -> TypeName -> String
 showCons cname tname = tname ++ "(" ++ cname ++ ")"
@@ -873,8 +875,8 @@ class ParseSum arity f allNullary where
              -> Value
              -> Tagged allNullary (Parser (f a))
 
-instance ( SumFromString           f
-         , ConstructorNames        f
+instance ( ConstructorNames        f
+         , SumFromString           f
          , FromPair          arity f
          , FromTaggedObject  arity f
          , FromUntaggedValue arity f
@@ -883,7 +885,8 @@ instance ( SumFromString           f
         | allNullaryToStringTag opts = Tagged . parseAllNullarySum tname opts
         | otherwise                  = Tagged . parseNonAllNullarySum p
 
-instance ( FromPair          arity f
+instance ( ConstructorNames        f
+         , FromPair          arity f
          , FromTaggedObject  arity f
          , FromUntaggedValue arity f
          ) => ParseSum       arity f False where
@@ -891,17 +894,12 @@ instance ( FromPair          arity f
 
 --------------------------------------------------------------------------------
 
-parseAllNullarySum :: forall f a. (SumFromString f, ConstructorNames f)
+parseAllNullarySum :: (SumFromString f, ConstructorNames f)
                    => TypeName -> Options -> Value -> Parser (f a)
 parseAllNullarySum tname opts =
-    fmap (contextType tname) . withText "String" $ \key ->
-      maybe (err key) return $
-        parseSumFromString opts key
-  where
-    err key = fail $
-      "unexpected string \"" ++ unpack key ++ "\" (expected: " ++
-      intercalate ", " cnames ++ ")"
-    cnames = unTagged2 (constructorNames opts :: Tagged2 f [String])
+    withText tname $ \tag ->
+      maybe (badTag tname opts tag) return $
+        parseSumFromString opts tag
 
 class SumFromString f where
     parseSumFromString :: Options -> Text -> Maybe (f a)
@@ -940,34 +938,44 @@ instance Constructor c => ConstructorNames (C1 c a) where
 parseNonAllNullarySum :: ( FromPair          arity f
                          , FromTaggedObject  arity f
                          , FromUntaggedValue arity f
+                         , ConstructorNames        f
                          ) => TypeName :* Options :* FromArgs arity c
                            -> Value -> Parser (f c)
 parseNonAllNullarySum p@(tname :* opts :* _) =
     case sumEncoding opts of
       TaggedObject{..} ->
-          withObject "Object" $ \obj -> do
+          withObject tname $ \obj -> do
             tag <- contextType tname $ obj .: pack tagFieldName
-            fromMaybe (notFound' tag) $
+            fromMaybe (badTag' tag) $
               parseFromTaggedObject (tag :* contentsFieldName :* p) obj
 
       ObjectWithSingleField ->
-          withObject "Object" $ \obj ->
+          withObject tname $ \obj ->
             case H.toList obj of
-              [(tag, v)] -> fromMaybe (notFound' tag) $ parsePair (tag :* p) v
+              [(tag, v)] -> fromMaybe (badTag' tag) $ parsePair (tag :* p) v
               _ -> contextType tname $ fail "Object doesn't have a single field"
 
       TwoElemArray ->
-          withArray "Array" $ \arr ->
+          withArray tname $ \arr ->
             if V.length arr == 2
             then case V.unsafeIndex arr 0 of
-                   String tag -> fromMaybe (notFound' tag) $
+                   String tag -> fromMaybe (badTag' tag) $
                                    parsePair (tag :* p) (V.unsafeIndex arr 1)
                    _ -> contextType tname $ fail "First element is not a String"
             else contextType tname $ fail "Array doesn't have 2 elements"
 
       UntaggedValue -> parseUntaggedValue p
   where
-    notFound' = contextType tname . notFound
+    badTag' = badTag tname opts
+
+badTag :: forall f a. ConstructorNames f
+       => TypeName -> Options -> Text -> Parser (f a)
+badTag tname opts tag =
+    contextType tname . fail $
+      "unexpected tag \"" ++ unpack tag ++
+      "\" (expected: " ++ intercalate ", " cnames ++ ")"
+  where
+    cnames = unTagged2 (constructorNames opts :: Tagged2 f [String])
 
 --------------------------------------------------------------------------------
 
@@ -1213,17 +1221,11 @@ instance OVERLAPPING_
         contextCons cname tname $ case v of
           String tag
             | tag == tag' -> pure $ M1 U1
-            | otherwise -> fail $ "Invalid tag: " ++ unpack tag
+            | otherwise -> fail $ "invalid tag: " ++ unpack tag
           _ -> typeMismatch "String" v
       where
         tag' = pack $ constructorTagModifier opts cname
         cname = conName (undefined :: _t c _f _p)
-
---------------------------------------------------------------------------------
-
-notFound :: Text -> Parser a
-notFound key = fail $ "The key \"" ++ unpack key ++ "\" was not found"
-{-# INLINE notFound #-}
 
 -------------------------------------------------------------------------------
 -- Instances
