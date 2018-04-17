@@ -36,6 +36,7 @@ module Data.Aeson.Types
     , ToJSON(..)
     , KeyValue(..)
     , modifyFailure
+    , prependFailure
     , parserThrowError
     , parserCatchError
 
