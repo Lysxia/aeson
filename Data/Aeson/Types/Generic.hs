@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -76,6 +77,7 @@ instance AllNullary (Rec1 f) False
 instance AllNullary U1 True
 
 newtype Tagged2 (s :: * -> *) b = Tagged2 {unTagged2 :: b}
+  deriving Functor
 
 --------------------------------------------------------------------------------
 

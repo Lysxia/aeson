@@ -80,7 +80,7 @@ module Data.Aeson.Types.FromJSON
 import Prelude ()
 import Prelude.Compat
 
-import Control.Applicative ((<|>), Const(..))
+import Control.Applicative ((<|>), Const(..), liftA2)
 import Control.Monad (zipWithM)
 import Data.Aeson.Internal.Functions (mapKey)
 import Data.Aeson.Parser.Internal (eitherDecodeWith, jsonEOF)
@@ -95,6 +95,7 @@ import Data.Functor.Product (Product(..))
 import Data.Functor.Sum (Sum(..))
 import Data.Hashable (Hashable(..))
 import Data.Int (Int16, Int32, Int64, Int8)
+import Data.List (intercalate)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
@@ -786,11 +787,11 @@ type TypeName = String
 type ConName = String
 
 contextType :: TypeName -> Parser a -> Parser a
-contextType tname = modifyFailure (\e -> "When parsing " ++ tname ++ ": " ++ e)
+contextType tname = modifyFailure (\e -> "when parsing " ++ tname ++ ", " ++ e)
 
 contextCons :: ConName -> TypeName -> Parser a -> Parser a
 contextCons cname tname = modifyFailure
-  (\e -> "When parsing " ++ showCons cname tname ++ ": " ++ e)
+  (\e -> "when parsing " ++ showCons cname tname ++ ", " ++ e)
 
 showCons :: ConName -> TypeName -> String
 showCons cname tname = tname ++ "(" ++ cname ++ ")"
@@ -873,6 +874,7 @@ class ParseSum arity f allNullary where
              -> Tagged allNullary (Parser (f a))
 
 instance ( SumFromString           f
+         , ConstructorNames        f
          , FromPair          arity f
          , FromTaggedObject  arity f
          , FromUntaggedValue arity f
@@ -889,11 +891,17 @@ instance ( FromPair          arity f
 
 --------------------------------------------------------------------------------
 
-parseAllNullarySum :: SumFromString f => TypeName -> Options -> Value -> Parser (f a)
+parseAllNullarySum :: forall f a. (SumFromString f, ConstructorNames f)
+                   => TypeName -> Options -> Value -> Parser (f a)
 parseAllNullarySum tname opts =
     fmap (contextType tname) . withText "Text" $ \key ->
-      maybe (notFound key) return $
+      maybe (err key) return $
         parseSumFromString opts key
+  where
+    err key = fail $
+      "unexpected string \"" ++ unpack key ++ "\" (expected: " ++
+      intercalate ", " cnames ++ ")"
+    cnames = unTagged2 (constructorNames opts :: Tagged2 f [String])
 
 class SumFromString f where
     parseSumFromString :: Options -> Text -> Maybe (f a)
@@ -907,7 +915,25 @@ instance (Constructor c) => SumFromString (C1 c U1) where
                                 | otherwise   = Nothing
         where
           name = pack $ constructorTagModifier opts $
-                          conName (undefined :: t c U1 p)
+                          conName (undefined :: _t c _f _p)
+
+constructorNames :: ConstructorNames a => Options -> Tagged2 a [String]
+constructorNames = fmap DList.toList . constructorNames'
+
+class ConstructorNames a where
+    constructorNames' :: Options -> Tagged2 a (DList.DList String)
+
+instance (ConstructorNames a, ConstructorNames b) => ConstructorNames (a :+: b) where
+    constructorNames' = liftA2 append constructorNames' constructorNames'
+      where
+        append :: Semigroup.Semigroup m
+               => Tagged2 a m -> Tagged2 b m -> Tagged2 (a :+: b) m
+        append (Tagged2 xs) (Tagged2 ys) = Tagged2 (xs <> ys)
+
+instance Constructor c => ConstructorNames (C1 c a) where
+    constructorNames' opts = Tagged2 (pure (constructorTagModifier opts cname))
+      where
+        cname = conName (undefined :: _t c _f _p)
 
 --------------------------------------------------------------------------------
 
@@ -1033,9 +1059,11 @@ instance RecordFromJSON arity f => ConsFromJSON' arity f True where
 instance OVERLAPPING_
          ConsFromJSON' arity U1 False where
     -- Empty constructors are expected to be encoded as an empty array:
-    consParseJSON' (cname :* tname :* _) v
-        | isEmptyArray v = Tagged (pure U1)
-        | otherwise      = Tagged (typeMismatch (showCons cname tname) v)
+    consParseJSON' (cname :* tname :* _) v =
+        Tagged . contextCons cname tname $ case v of
+          Array a | V.null a -> pure U1
+                  | otherwise -> fail "expected empty array"
+          _ -> typeMismatch "Array" v
 
 instance OVERLAPPING_
          GFromJSON arity f => ConsFromJSON' arity (S1 s f) False where
