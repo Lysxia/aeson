@@ -584,10 +584,12 @@ data SumEncoding =
     -- the 'constructorTagModifier'). If the constructor is a record
     -- the encoded record fields will be unpacked into this object. So
     -- make sure that your record doesn't have a field with the same
-    -- label as the 'tagFieldName'. Otherwise the tag gets overwritten
-    -- by the encoded value of that field! If the constructor is not a
-    -- record the encoded constructor contents will be stored under
-    -- the 'contentsFieldName' field.
+    -- label as the 'tagFieldName', otherwise the tag gets overwritten
+    -- by the encoded value of that field! If the constructor is nullary
+    -- then the presence of that field is ignored.
+    -- Otherwise, if the constructor is not a record and has at least one
+    -- field, the encoded constructor contents will be stored under the
+    -- 'contentsFieldName' field.
   | UntaggedValue
     -- ^ Constructor names won't be encoded. Instead only the contents of the
     -- constructor will be encoded as if the type had a single constructor. JSON
