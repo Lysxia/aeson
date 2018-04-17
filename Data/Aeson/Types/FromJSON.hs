@@ -945,23 +945,27 @@ parseNonAllNullarySum p@(tname :* opts :* _) =
     case sumEncoding opts of
       TaggedObject{..} ->
           withObject tname $ \obj -> do
-            tag <- contextType tname $ obj .: pack tagFieldName
-            fromMaybe (badTag' tag) $
+            tag <- contextType tname $ obj .: tagKey
+            fromMaybe (badTag' tag <?> Key tagKey) $
               parseFromTaggedObject (tag :* contentsFieldName :* p) obj
+        where
+          tagKey = pack tagFieldName
 
       ObjectWithSingleField ->
           withObject tname $ \obj ->
             case H.toList obj of
-              [(tag, v)] -> fromMaybe (badTag' tag) $ parsePair (tag :* p) v
+              [(tag, v)] -> maybe (badTag' tag) (<?> Key tag) $
+                              parsePair (tag :* p) v
               _ -> contextType tname $ fail "Object doesn't have a single field"
 
       TwoElemArray ->
           withArray tname $ \arr ->
             if V.length arr == 2
             then case V.unsafeIndex arr 0 of
-                   String tag -> fromMaybe (badTag' tag) $
+                   String tag -> maybe (badTag' tag <?> Index 0) (<?> Index 1) $
                                    parsePair (tag :* p) (V.unsafeIndex arr 1)
-                   _ -> contextType tname $ fail "First element is not a String"
+                   _ -> contextType tname $
+                          fail "First element is not a String" <?> Index 0
             else contextType tname $ fail "Array doesn't have 2 elements"
 
       UntaggedValue -> parseUntaggedValue p
@@ -1023,9 +1027,10 @@ instance (RecordFromJSON arity f) => FromTaggedObject' arity f True where
 instance (ConsFromJSON arity f) => FromTaggedObject' arity f False where
     -- Nonnullary nonrecords are encoded in the contents field
     parseFromTaggedObject' p obj = Tagged $ do
-        contents <- contextCons cname tname (obj .: pack contentsFieldName)
-        consParseJSON p' contents
+        contents <- contextCons cname tname (obj .: key)
+        consParseJSON p' contents <?> Key key
       where
+        key = pack contentsFieldName
         contentsFieldName :* p'@(cname :* tname :* _) = p
 
 instance OVERLAPPING_ FromTaggedObject' arity U1 False where
@@ -1161,7 +1166,7 @@ instance ( ProductFromJSON    arity a
 
 instance (GFromJSON arity a) => ProductFromJSON arity (S1 s a) where
     productParseJSON (_ :* _ :* opts :* fargs) arr ix _ =
-      M1 <$> gParseJSON opts fargs (V.unsafeIndex arr ix)
+      M1 <$> gParseJSON opts fargs (V.unsafeIndex arr ix) <?> Index ix
 
 --------------------------------------------------------------------------------
 
