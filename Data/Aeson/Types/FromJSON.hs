@@ -184,9 +184,9 @@ scientificToNumber s
 {-# INLINE scientificToNumber #-}
 
 parseRealFloat :: RealFloat a => String -> Value -> Parser a
-parseRealFloat _        (Number s) = pure $ Scientific.toRealFloat s
-parseRealFloat _        Null       = pure (0/0)
-parseRealFloat expected v          = typeMismatch expected v
+parseRealFloat _       (Number s) = pure $ Scientific.toRealFloat s
+parseRealFloat _       Null       = pure (0/0)
+parseRealFloat context v          = prependContext context (unexpected v)
 {-# INLINE parseRealFloat #-}
 
 parseIntegralFromScientific :: forall a. Integral a => String -> Scientific -> Parser a
@@ -503,15 +503,21 @@ typeMismatch :: String -- ^ The name of the type you are trying to parse.
              -> Value  -- ^ The actual value encountered.
              -> Parser a
 typeMismatch expected actual =
-    fail $ "expected " ++ expected ++ ", encountered " ++ name
-  where
-    name = case actual of
-             Object _ -> "Object"
-             Array _  -> "Array"
-             String _ -> "String"
-             Number _ -> "Number"
-             Bool _   -> "Boolean"
-             Null     -> "Null"
+    fail $ "expected " ++ expected ++ ", encountered " ++ typeOf actual
+
+-- | Fail parsing due to a type mismatch, when the expected types are implicit.
+unexpected :: Value -> Parser a
+unexpected actual = fail $ "unexpected " ++ typeOf actual
+
+-- | JSON type of a value, name of the head constructor.
+typeOf :: Value -> String
+typeOf v = case v of
+    Object _ -> "Object"
+    Array _  -> "Array"
+    String _ -> "String"
+    Number _ -> "Number"
+    Bool _   -> "Boolean"
+    Null     -> "Null"
 
 -------------------------------------------------------------------------------
 -- Lifings of FromJSON and ToJSON to unary and binary type constructors
