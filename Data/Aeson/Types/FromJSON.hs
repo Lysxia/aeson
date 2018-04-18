@@ -608,7 +608,7 @@ parseJSON2 = liftParseJSON2 parseJSON parseJSONList parseJSON parseJSONList
 -- | Helper function to use with 'liftParseJSON'. See 'Data.Aeson.ToJSON.listEncoding'.
 listParser :: (Value -> Parser a) -> Value -> Parser [a]
 listParser f (Array xs) = fmap V.toList (V.mapM f xs)
-listParser _ v          = typeMismatch "[a]" v
+listParser _ v          = typeMismatch "Array" v
 {-# INLINE listParser #-}
 
 -------------------------------------------------------------------------------
@@ -1291,7 +1291,8 @@ instance (FromJSON a, FromJSON b) => FromJSON (Either a b) where
 
 
 instance FromJSON Bool where
-    parseJSON = withBool "Bool" pure
+    parseJSON (Bool b) = pure b
+    parseJSON v = typeMismatch "Bool" v
     {-# INLINE parseJSON #-}
 
 instance FromJSONKey Bool where
@@ -1322,7 +1323,8 @@ instance FromJSON Char where
                     else fail "Expected a string of length 1"
     {-# INLINE parseJSON #-}
 
-    parseJSONList = withText "String" $ pure . T.unpack
+    parseJSONList (String s) = pure (T.unpack s)
+    parseJSONList v = typeMismatch "String" v
     {-# INLINE parseJSONList #-}
 
 instance FromJSON Double where
@@ -1953,14 +1955,15 @@ instance FromJSON a => FromJSON (Semigroup.Option a) where
 
 instance FromJSON1 Proxy where
     {-# INLINE liftParseJSON #-}
-    liftParseJSON _ _ Null = pure Proxy
-    liftParseJSON _ _ v    = typeMismatch "Proxy" v
+    liftParseJSON _ _ = fromNull "Proxy" Proxy
 
 instance FromJSON (Proxy a) where
     {-# INLINE parseJSON #-}
-    parseJSON Null = pure Proxy
-    parseJSON v    = typeMismatch "Proxy" v
+    parseJSON = fromNull "Proxy" Proxy
 
+fromNull :: String -> a -> Value -> Parser a
+fromNull _ a Null = pure a
+fromNull c _ v    = prependContext c (typeMismatch "Null" v)
 
 instance FromJSON2 Tagged where
     liftParseJSON2 _ _ p _ = fmap Tagged . p
