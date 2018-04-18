@@ -189,28 +189,28 @@ parseRealFloat _       Null       = pure (0/0)
 parseRealFloat context v          = prependContext context (unexpected v)
 {-# INLINE parseRealFloat #-}
 
-parseIntegralFromScientific :: forall a. Integral a => String -> Scientific -> Parser a
-parseIntegralFromScientific expected s =
+parseIntegralFromScientific :: forall a. Integral a => Scientific -> Parser a
+parseIntegralFromScientific s =
     case Scientific.floatingOrInteger s :: Either Double a of
         Right x -> pure x
-        Left _  -> fail $ "expected " ++ expected ++ ", encountered floating number " ++ show s
+        Left _  -> fail $ "unexpected floating number: " ++ show s
 {-# INLINE parseIntegralFromScientific #-}
 
 parseIntegral :: Integral a => String -> Value -> Parser a
-parseIntegral expected =
-    withScientific expected $ parseIntegralFromScientific expected
+parseIntegral context =
+    prependContext context . withScientific' parseIntegralFromScientific
 {-# INLINE parseIntegral #-}
 
-parseBoundedIntegralFromScientific :: (Bounded a, Integral a) => String -> Scientific -> Parser a
-parseBoundedIntegralFromScientific expected s = maybe
-    (fail $ expected ++ " is either floating or will cause over or underflow: " ++ show s)
+parseBoundedIntegralFromScientific :: (Bounded a, Integral a) => Scientific -> Parser a
+parseBoundedIntegralFromScientific s = maybe
+    (fail $ "value is either floating or will cause over or underflow: " ++ show s)
     pure
     (Scientific.toBoundedInteger s)
 {-# INLINE parseBoundedIntegralFromScientific #-}
 
 parseBoundedIntegral :: (Bounded a, Integral a) => String -> Value -> Parser a
-parseBoundedIntegral expected =
-    withScientific expected $ parseBoundedIntegralFromScientific expected
+parseBoundedIntegral context =
+    prependContext context . withScientific' parseBoundedIntegralFromScientific
 {-# INLINE parseBoundedIntegral #-}
 
 parseScientificText :: Text -> Parser Scientific
@@ -220,13 +220,15 @@ parseScientificText
     . T.encodeUtf8
 
 parseIntegralText :: Integral a => String -> Text -> Parser a
-parseIntegralText expected t =
-    parseScientificText t >>= parseIntegralFromScientific expected
+parseIntegralText context t =
+    prependContext context $
+      parseScientificText t >>= parseIntegralFromScientific
 {-# INLINE parseIntegralText #-}
 
 parseBoundedIntegralText :: (Bounded a, Integral a) => String -> Text -> Parser a
-parseBoundedIntegralText expected t =
-    parseScientificText t >>= parseBoundedIntegralFromScientific expected
+parseBoundedIntegralText context t =
+    prependContext context $
+      parseScientificText t >>= parseBoundedIntegralFromScientific
 
 parseOptionalFieldWith :: (Value -> Parser (Maybe a))
                        -> Object -> Text -> Parser (Maybe a)
@@ -670,6 +672,13 @@ withScientific :: String -> (Scientific -> Parser a) -> Value -> Parser a
 withScientific _ f (Number scientific) = f scientific
 withScientific context _ v = prependContext context (typeMismatch "Number" v)
 {-# INLINE withScientific #-}
+
+-- | A version of 'withScientific' that uses 'unexpected' instead of
+-- @'typeMismatch' "Number"@.
+withScientific' :: (Scientific -> Parser a) -> Value -> Parser a
+withScientific' f v = case v of
+    Number n -> f n
+    _ -> unexpected v
 
 -- | @'withBool' expected f value@ applies @f@ to the 'Bool' when @value@ is a
 -- 'Bool' and fails using @'typeMismatch' expected@ otherwise.
