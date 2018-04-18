@@ -266,10 +266,10 @@ jsonPath = [
          :: Either String (Int, Either (Int, Bool) ()))
     -- issue #358
   , assertEqual "Seq a"
-      (Left "Error in $[2]: expected Int, encountered Boolean")
+      (Left "Error in $[2]: parsing Int failed, unexpected Boolean")
       (eitherDecode "[0,1,true]" :: Either String (Seq Int))
   , assertEqual "Wibble"
-      (Left "Error in $.wibbleInt: expected Int, encountered Boolean")
+      (Left "Error in $.wibbleInt: parsing Int failed, unexpected Boolean")
       (eitherDecode "{\"wibbleString\":\"\",\"wibbleInt\":true}"
          :: Either String Wibble)
   ]
