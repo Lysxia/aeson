@@ -184,21 +184,21 @@ scientificToNumber s
 {-# INLINE scientificToNumber #-}
 
 parseRealFloat :: RealFloat a => String -> Value -> Parser a
-parseRealFloat _       (Number s) = pure $ Scientific.toRealFloat s
-parseRealFloat _       Null       = pure (0/0)
-parseRealFloat context v          = prependContext context (unexpected v)
+parseRealFloat _    (Number s) = pure $ Scientific.toRealFloat s
+parseRealFloat _    Null       = pure (0/0)
+parseRealFloat name v          = prependContext name (unexpected v)
 {-# INLINE parseRealFloat #-}
 
 parseIntegralFromScientific :: forall a. Integral a => Scientific -> Parser a
 parseIntegralFromScientific s =
-    case Scientific.floatingOrInteger s :: Either Double a of
+    case (Scientific.floatingOrInteger s :: Either Double a) of
         Right x -> pure x
         Left _  -> fail $ "unexpected floating number " ++ show s
 {-# INLINE parseIntegralFromScientific #-}
 
 parseIntegral :: Integral a => String -> Value -> Parser a
-parseIntegral context =
-    prependContext context . withScientific' parseIntegralFromScientific
+parseIntegral name =
+    prependContext name . withScientific' parseIntegralFromScientific
 {-# INLINE parseIntegral #-}
 
 parseBoundedIntegralFromScientific :: (Bounded a, Integral a) => Scientific -> Parser a
@@ -209,8 +209,8 @@ parseBoundedIntegralFromScientific s = maybe
 {-# INLINE parseBoundedIntegralFromScientific #-}
 
 parseBoundedIntegral :: (Bounded a, Integral a) => String -> Value -> Parser a
-parseBoundedIntegral context =
-    prependContext context . withScientific' parseBoundedIntegralFromScientific
+parseBoundedIntegral name =
+    prependContext name . withScientific' parseBoundedIntegralFromScientific
 {-# INLINE parseBoundedIntegral #-}
 
 parseScientificText :: Text -> Parser Scientific
@@ -220,14 +220,14 @@ parseScientificText
     . T.encodeUtf8
 
 parseIntegralText :: Integral a => String -> Text -> Parser a
-parseIntegralText context t =
-    prependContext context $
+parseIntegralText name t =
+    prependContext name $
       parseScientificText t >>= parseIntegralFromScientific
 {-# INLINE parseIntegralText #-}
 
 parseBoundedIntegralText :: (Bounded a, Integral a) => String -> Text -> Parser a
-parseBoundedIntegralText context t =
-    prependContext context $
+parseBoundedIntegralText name t =
+    prependContext name $
       parseScientificText t >>= parseBoundedIntegralFromScientific
 
 parseOptionalFieldWith :: (Value -> Parser (Maybe a))
@@ -492,14 +492,11 @@ mapFromJSONKeyFunction = fmap
 
 -- | Fail parsing due to a type mismatch, with a descriptive message.
 --
--- Example usage:
---
--- @
--- instance FromJSON Coord where
---   parseJSON ('Object' v) = {- type matches, life is good -}
---   parseJSON wat        = 'typeMismatch' \"Coord\" wat
--- @
-typeMismatch :: String -- ^ The name of the type you are trying to parse.
+-- The following wrappers should generally be prefered:
+-- 'withObject', 'withArray', 'withText', 'withNumber', 'withBool'.
+typeMismatch :: String -- ^ The name of the JSON type being parsed
+                       -- (@\"Object\"@, @\"Array\"@, @\"String\"@, @\"Number\"@,
+                       -- @\"Boolean\"@, or @\"Null\"@).
              -> Value  -- ^ The actual value encountered.
              -> Parser a
 typeMismatch expected actual =
@@ -631,57 +628,91 @@ instance (FromJSON a) => FromJSON [a] where
 -- Functions
 -------------------------------------------------------------------------------
 
+-- | Add context to a failure message, indicating the name of the structure
+-- being parsed.
+--
+-- > prependContext "MyType" (fail "[error message]")
+-- > -- Error: "parsing MyType failed, [error message]"
 prependContext :: String -> Parser a -> Parser a
-prependContext s = prependFailure ("parsing " ++ s ++ " failed, ")
+prependContext name = prependFailure ("parsing " ++ name ++ " failed, ")
 
--- | @'withObject' expected f value@ applies @f@ to the 'Object' when @value@
---   is an 'Object' and fails using @'typeMismatch' expected@ otherwise.
+-- | @'withObject' name f value@ applies @f@ to the 'Object' when @value@
+-- is an 'Data.Aeson.Object' and fails otherwise.
+--
+-- ==== Error message example
+--
+-- > withObject "MyType" f Null
+-- > -- Error: "parsing MyType failed, expected Object, encountered Null"
 withObject :: String -> (Object -> Parser a) -> Value -> Parser a
-withObject _       f (Object obj) = f obj
-withObject context _ v            = prependContext context (typeMismatch "Object" v)
+withObject _    f (Object obj) = f obj
+withObject name _ v            = prependContext name (typeMismatch "Object" v)
 {-# INLINE withObject #-}
 
--- | @'withText' expected f value@ applies @f@ to the 'Text' when @value@ is a
---   'String' and fails using @'typeMismatch' expected@ otherwise.
+-- | @'withText' name f value@ applies @f@ to the 'Text' when @value@ is a
+-- 'Data.Aeson.String' and fails otherwise.
+--
+-- ==== Error message example
+--
+-- > withText "MyType" f Null
+-- > -- Error: "parsing MyType failed, expected String, encountered Null"
 withText :: String -> (Text -> Parser a) -> Value -> Parser a
-withText _       f (String txt) = f txt
-withText context _ v            = prependContext context (typeMismatch "String" v)
+withText _    f (String txt) = f txt
+withText name _ v            = prependContext name (typeMismatch "String" v)
 {-# INLINE withText #-}
 
 -- | @'withArray' expected f value@ applies @f@ to the 'Array' when @value@ is
--- an 'Array' and fails using @'typeMismatch' expected@ otherwise.
+-- an 'Data.Aeson.Array' and fails otherwise.
+--
+-- ==== Error message example
+--
+-- > withArray "MyType" f Null
+-- > -- Error: "parsing MyType failed, expected Array, encountered Null"
 withArray :: String -> (Array -> Parser a) -> Value -> Parser a
-withArray _       f (Array arr) = f arr
-withArray context _ v           = prependContext context (typeMismatch "Array" v)
+withArray _    f (Array arr) = f arr
+withArray name _ v           = prependContext name (typeMismatch "Array" v)
 {-# INLINE withArray #-}
 
--- | @'withNumber' expected f value@ applies @f@ to the 'Number' when @value@
--- is a 'Number' and fails using @'typeMismatch' expected@ otherwise.
+-- | @'withNumber' name f value@ applies @f@ to the 'Number' when @value@
+-- is a 'Data.Aeson.Number' and fails otherwise.
 withNumber :: String -> (Number -> Parser a) -> Value -> Parser a
-withNumber expected f = withScientific expected (f . scientificToNumber)
+withNumber name f = withScientific name (f . scientificToNumber)
 {-# INLINE withNumber #-}
-{-# DEPRECATED withNumber "Use withScientific instead" #-}
+{-# DEPRECATED withNumber "Use 'withScientific' instead" #-}
 
--- | @'withScientific' expected f value@ applies @f@ to the 'Scientific' number
--- when @value@ is a 'Number' and fails using @'typeMismatch' expected@
--- otherwise.
+-- | @'withScientific' name f value@ applies @f@ to the 'Scientific' number
+-- when @value@ is a 'Data.Aeson.Number' and fails otherwise.
+--
+-- ==== Error message example
+--
+-- > withScientific "MyType" f Null
+-- > -- Error: "parsing MyType failed, expected Number, encountered Null"
 withScientific :: String -> (Scientific -> Parser a) -> Value -> Parser a
 withScientific _ f (Number scientific) = f scientific
-withScientific context _ v = prependContext context (typeMismatch "Number" v)
+withScientific name _ v = prependContext name (typeMismatch "Number" v)
 {-# INLINE withScientific #-}
 
 -- | A version of 'withScientific' that uses 'unexpected' instead of
--- @'typeMismatch' "Number"@.
+-- 'typeMismatch', when it is clear that a JSON number is expected.
+--
+-- ==== Error message example
+--
+-- > withScientific "MyType" f Null
+-- > -- Error: "parsing MyType failed, unexpected Null"
 withScientific' :: (Scientific -> Parser a) -> Value -> Parser a
 withScientific' f v = case v of
     Number n -> f n
     _ -> unexpected v
 
 -- | @'withBool' expected f value@ applies @f@ to the 'Bool' when @value@ is a
--- 'Bool' and fails using @'typeMismatch' expected@ otherwise.
+-- 'Boolean' and fails otherwise.
+--
+-- ==== Error message example
+--
+-- > withBool "MyType" f Null
+-- > -- Error: "parsing MyType failed, expected Boolean, encountered Null"
 withBool :: String -> (Bool -> Parser a) -> Value -> Parser a
-withBool _       f (Bool arr) = f arr
-withBool context _ v          = prependContext context (typeMismatch "Bool" v)
+withBool _    f (Bool arr) = f arr
+withBool name _ v          = prependContext name (typeMismatch "Boolean" v)
 {-# INLINE withBool #-}
 
 -- | Decode a nested JSON-encoded string.
@@ -691,7 +722,7 @@ withEmbeddedJSON _ innerParser (String txt) =
     where
         eitherDecode = eitherFormatError . eitherDecodeWith jsonEOF ifromJSON
         eitherFormatError = either (Left . uncurry formatError) Right
-withEmbeddedJSON context _ v = prependContext context (typeMismatch "String" v)
+withEmbeddedJSON name _ v = prependContext name (typeMismatch "String" v)
 {-# INLINE withEmbeddedJSON #-}
 
 -- | Convert a value from JSON, failing if the types do not match.
@@ -801,12 +832,15 @@ pmval .!= val = fromMaybe val <$> pmval
 type TypeName = String
 type ConName = String
 
+-- | Add the name of the type being parsed to a parser's error messages.
 contextType :: TypeName -> Parser a -> Parser a
 contextType = prependContext
 
+-- | Add the name of the constructor being parsed to a parser's error messages.
 contextCons :: ConName -> TypeName -> Parser a -> Parser a
 contextCons cname tname = prependContext (showCons cname tname)
 
+-- | Render a constructor as @\"MyType(MyConstructor)\"@.
 showCons :: ConName -> TypeName -> String
 showCons cname tname = tname ++ "(" ++ cname ++ ")"
 
