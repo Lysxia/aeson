@@ -9,72 +9,68 @@ module ErrorMessages
 import Prelude ()
 import Prelude.Compat
 
-import Data.Aeson (FromJSON(..), eitherDecode)
+import Data.Aeson (FromJSON(..), Value, json)
+import Data.Aeson.Types (Parser)
+import Data.Aeson.Parser (eitherDecodeWith)
+import Data.Aeson.Internal (formatError, iparse)
 import Data.Proxy (Proxy(..))
+import Data.Semigroup ((<>))
 import Instances ()
 import Numeric.Natural (Natural)
 import Test.Tasty (TestTree)
-import Test.Tasty.HUnit (testCase)
-import Test.HUnit (Assertion, assertFailure, assertEqual)
+import Test.Tasty.Golden
 import qualified Data.ByteString.Lazy.Char8 as L
 import qualified Data.HashMap.Strict as HM
 
 tests :: [TestTree]
 tests =
-    [
-      testCase "Int" int
-    , testCase "Integer" integer
-    , testCase "Natural" natural
-    , testCase "String" string
-    , testCase "HashMap" hashMap
+    [ goldenVsString "simple" "tests/golden/simple.txt" (pure output)
     ]
 
-int :: Assertion
-int = do
-  let t = test (Proxy :: Proxy Int)
-  t "\"\"" $ failed "Int" "String"
-  t "[]"   $ failed "Int" "Array"
-  t "{}"   $ failed "Int" "Object"
-  t "null" $ failed "Int" "Null"
+output :: L.ByteString
+output = (L.pack . unlines . concat)
+  [ testFor "Int" (Proxy :: Proxy Int)
+      [ "\"\""
+      , "[]"
+      , "{}"
+      , "null"
+      ]
 
-integer :: Assertion
-integer = do
-  let t = test (Proxy :: Proxy Integer)
-  t "44.44" $ failed "Integer" "floating number 44.44"
+  , testFor "Integer" (Proxy :: Proxy Integer)
+      [ "44.44"
+      ]
 
-natural :: Assertion
-natural = do
-  let t = test (Proxy :: Proxy Natural)
-  t "44.44" $ failed "Natural" "floating number 44.44"
-  t "-50"   $ failed "Natural" "negative number -50"
+  , testFor "Natural" (Proxy :: Proxy Natural)
+      [ "44.44"
+      , "-50"
+      ]
 
-string :: Assertion
-string = do
-  let t = test (Proxy :: Proxy String)
-  t "1"    $ expected "String" "Number"
-  t "[]"   $ expected "String" "Array"
-  t "{}"   $ expected "String" "Object"
-  t "null" $ expected "String" "Null"
+  , testFor "String" (Proxy :: Proxy String)
+      [ "1"
+      , "[]"
+      , "{}"
+      , "null"
+      ]
 
-hashMap :: Assertion
-hashMap = do
-  let t = test (Proxy :: Proxy (HM.HashMap String Int))
-  t "\"\"" $ failed' "HashMap" "Object" "String"
-  t "[]"   $ failed' "HashMap" "Object" "Array"
+  , testFor "HashMap" (Proxy :: Proxy (HM.HashMap String Int))
+      [ "\"\""
+      , "[]"
+      ]
+  ]
 
-failed :: String -> String -> String
-failed ctx enc = "Error in $: parsing " ++ ctx ++ " failed, unexpected " ++ enc
+type Output = [String]
 
-failed' :: String -> String -> String -> String
-failed' ctx ex enc =
-    "Error in $: parsing " ++ ctx ++
-    " failed, expected " ++ ex ++
-    ", encountered " ++ enc
+outputLine :: String -> Output
+outputLine = pure
 
-expected :: String -> String -> String
-expected ex enc = "Error in $: expected " ++ ex ++ ", encountered " ++ enc
+testWith :: Show a => String -> (Value -> Parser a) -> [L.ByteString] -> Output
+testWith name parser ts =
+  outputLine name <>
+  flip foldMap ts (\s ->
+    case eitherDecodeWith json (iparse parser) s of
+      Left err -> outputLine $ uncurry formatError err
+      Right a -> outputLine $ show a)
 
-test :: forall a proxy . (FromJSON a, Show a) => proxy a -> L.ByteString -> String -> Assertion
-test _ v msg = case eitherDecode v of
-    Left e -> assertEqual "Invalid error message" msg e
-    Right (x :: a) -> assertFailure $ "Expected parsing to fail but it suceeded with: " ++ show x
+testFor :: forall a proxy. (FromJSON a, Show a)
+        => String -> proxy a -> [L.ByteString] -> Output
+testFor name _ = testWith name (parseJSON :: Value -> Parser a)
