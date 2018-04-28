@@ -58,6 +58,8 @@ output = (L.pack . unlines . concat)
       ]
   ]
 
+-- Test infrastructure
+
 type Output = [String]
 
 outputLine :: String -> Output
