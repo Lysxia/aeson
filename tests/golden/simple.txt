@@ -1,0 +1,18 @@
+Int
+Error in $: parsing Int failed, unexpected String
+Error in $: parsing Int failed, unexpected Array
+Error in $: parsing Int failed, unexpected Object
+Error in $: parsing Int failed, unexpected Null
+Integer
+Error in $: parsing Integer failed, unexpected floating number 44.44
+Natural
+Error in $: parsing Natural failed, unexpected floating number 44.44
+Error in $: parsing Natural failed, unexpected negative number -50
+String
+Error in $: expected String, encountered Number
+Error in $: expected String, encountered Array
+Error in $: expected String, encountered Object
+Error in $: expected String, encountered Null
+HashMap
+Error in $: parsing HashMap failed, expected Object, encountered String
+Error in $: parsing HashMap failed, expected Object, encountered Array

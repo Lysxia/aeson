@@ -1,0 +1,33 @@
+OneConstructor
+Error in $: parsing OneConstructor(OneConstructor) failed, expected Array, encountered String
+Error in $: parsing OneConstructor(OneConstructor) failed, expected empty array
+Nullary
+Error in $: parsing Nullary failed, unexpected tag "X" (expected: C1, C2, C3)
+Error in $: parsing Nullary failed, expected String, encountered Array
+SomeType (tagged)
+Error in $.contents: parsing Int failed, unexpected Boolean
+Error in $: parsing SomeType(unary) failed, key "contents" not present
+Error in $: parsing SomeType(record) failed, key "testone" not present
+Error in $.tag: parsing SomeType failed, unexpected tag "X" (expected: nullary, unary, product, record, list)
+Error in $: parsing SomeType failed, key "tag" not present
+Error in $: parsing SomeType failed, expected Object, encountered Array
+SomeType (single-field)
+Error in $.unary: parsing Int failed, unexpected Object
+Error in $.unary: parsing Int failed, unexpected Array
+Error in $: parsing SomeType failed, unexpected tag "X" (expected: nullary, unary, product, record, list)
+Error in $: parsing SomeType failed, Object doesn't have a single field
+Error in $: parsing SomeType failed, Object doesn't have a single field
+Error in $: parsing SomeType failed, expected Object, encountered Array
+SomeType (two-element array)
+Error in $[1]: parsing Int failed, unexpected Boolean
+Error in $[1]: parsing SomeType(Record) failed, expected Object, encountered Null
+Error in $[0]: parsing SomeType failed, unexpected tag "X" (expected: nullary, unary, product, record, list)
+Error in $: parsing SomeType failed, Array doesn't have 2 elements
+Error in $: parsing SomeType failed, expected Array, encountered Object
+EitherTextInt
+Error in $: parsing EitherTextInt(NoneNullary) failed, unexpected tag "X"
+Error in $: parsing EitherTextInt(NoneNullary) failed, expected String, encountered Array
+Product2 Int Bool
+Error in $[1]: expected Bool, encountered Null
+Error in $: parsing Product2(Product2) failed, expected a product of 2 values, encountered an Array of 0 elements instead
+Error in $: parsing Product2(Product2) failed, expected Array, encountered Object
