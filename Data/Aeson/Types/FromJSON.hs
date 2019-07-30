@@ -797,13 +797,13 @@ withBoundedScientific' f v = withBoundedScientific_ id f v
 -- | A variant of 'withBoundedScientific_' parameterized by a function to apply
 -- to the 'Parser' in case of failure.
 withBoundedScientific_ :: (Parser a -> Parser a) -> (Scientific -> Parser a) -> Value -> Parser a
-withBoundedScientific_ whenFail f v@(Number scientific) =
-    if exponent > 1024
+withBoundedScientific_ whenFail f (Number scientific) =
+    if exponent' > 1024
     then whenFail (fail msg)
     else f scientific
   where
-    exponent = base10Exponent scientific
-    msg = "found a number with exponent " ++ show exponent ++ ", but it must not be greater than 1024"
+    exponent' = base10Exponent scientific
+    msg = "found a number with exponent " ++ show exponent' ++ ", but it must not be greater than 1024"
 withBoundedScientific_ whenFail _ v =
     whenFail (typeMismatch "Number" v)
 {-# INLINE withBoundedScientific_ #-}

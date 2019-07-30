@@ -21,7 +21,12 @@ import Prelude.Compat
 
 import Data.Int (Int64)
 import Data.Time
+
+#if !MIN_VERSION_time(1,6,0) || !MIN_VERSION_base(4,7,0)
+
 import Unsafe.Coerce (unsafeCoerce)
+
+#endif
 
 #if MIN_VERSION_time(1,6,0)
 
